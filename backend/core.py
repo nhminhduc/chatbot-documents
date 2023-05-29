@@ -6,15 +6,17 @@ from typing import Any, List
 from langchain import FAISS
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
-from langchain.docstore.document import Document
 
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 from backend.text_processor import parse_file, text_to_docs
 
 
-def run_llm(query: str, index: FAISS, chat_history: List[tuple[str, Any]] = []):
+def run_llm(
+    key: str, query: str, index: FAISS, chat_history: List[tuple[str, Any]] = []
+):
     chat = ChatOpenAI(
+        openai_api_key=key,
         verbose=True,
         temperature=0,
     )

@@ -48,7 +48,6 @@ if uploaded_files != st.session_state.last_uploaded_files:
     st.session_state["chat_history"] = []
     st.session_state.last_uploaded_files = uploaded_files
 
-api = ""
 if uploaded_files:
     all_pages = create_docs(uploaded_files)
     api = st.sidebar.text_input(
@@ -60,51 +59,58 @@ if uploaded_files:
 
     if api:
         embeddings = OpenAIEmbeddings(openai_api_key=api)
-        with st.spinner("It's indexing..."):
-            index = FAISS.from_documents(documents=all_pages, embedding=embeddings)
-        st.sidebar.success("Embeddings done.", icon="✅")
+        index = None
+        try:
+            with st.spinner("It's indexing..."):
+                index = FAISS.from_documents(documents=all_pages, embedding=embeddings)
+            st.sidebar.success("Embeddings done.", icon="✅")
+        except Exception as e:
+            st.sidebar.error(f"Indexing failed. Please check if API key is valid.")
+            st.error("Indexing failed. Please check if API key is valid.")
 
-        prompt = st.text_area(
-            "Prompt", placeholder="Enter your message here..."
-        ) or st.button("Submit")
+        if index:
+            prompt = st.text_area(
+                "Prompt", placeholder="Enter your message here..."
+            ) or st.button("Submit")
 
-        if prompt:
-            with st.spinner("Generating response..."):
-                generated_response = run_llm(
-                    query=prompt,
-                    index=index,
-                    chat_history=st.session_state["chat_history"],
-                )
-
-                sources = set(
-                    [
-                        doc.metadata["source"]
-                        for doc in generated_response["source_documents"]
-                    ]
-                )
-                formatted_response = f"{generated_response['answer']} \n\n {create_sources_string(sources)}"
-
-                st.session_state.chat_history.append(
-                    (prompt, generated_response["answer"])
-                )
-                st.session_state.user_prompt_history.append(prompt)
-                st.session_state.chat_answers_history.append(formatted_response)
-
-        if st.session_state["chat_answers_history"]:
-            for generated_response, user_query in reversed(
-                list(
-                    zip(
-                        st.session_state["chat_answers_history"],
-                        st.session_state["user_prompt_history"],
+            if prompt:
+                with st.spinner("Generating response..."):
+                    generated_response = run_llm(
+                        key=api,
+                        query=prompt,
+                        index=index,
+                        chat_history=st.session_state["chat_history"],
                     )
-                )
-            ):
-                message(generated_response)
-                message(
-                    user_query,
-                    is_user=True,
-                    key=f"{user_query}-{generated_response}",
-                )
+
+                    sources = set(
+                        [
+                            doc.metadata["source"]
+                            for doc in generated_response["source_documents"]
+                        ]
+                    )
+                    formatted_response = f"{generated_response['answer']} \n\n {create_sources_string(sources)}"
+
+                    st.session_state.chat_history.append(
+                        (prompt, generated_response["answer"])
+                    )
+                    st.session_state.user_prompt_history.append(prompt)
+                    st.session_state.chat_answers_history.append(formatted_response)
+
+            if st.session_state["chat_answers_history"]:
+                for generated_response, user_query in reversed(
+                    list(
+                        zip(
+                            st.session_state["chat_answers_history"],
+                            st.session_state["user_prompt_history"],
+                        )
+                    )
+                ):
+                    message(generated_response)
+                    message(
+                        user_query,
+                        is_user=True,
+                        key=f"{user_query}-{generated_response}",
+                    )
     else:
         st.warning("Input your API key to continue.")
 else:
